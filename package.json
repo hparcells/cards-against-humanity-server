@@ -1,0 +1,17 @@
+{
+  "name": "cards-against-humanity-server",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "babel-eslint": "^10.0.1",
+    "express": "^4.16.4",
+    "os": "^0.1.1",
+    "socket.io": "^2.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.4.0",
+    "eslint": "^5.3.0"
+  }
+}
