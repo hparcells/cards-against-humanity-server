@@ -24,6 +24,17 @@ let started = false;
 // Start.
 IO.on('connection', (client) => {
   client.on('newPlayer', (username) => {
+    // Check if the username already exists.
+    for(const player of game.players) {
+      if(username === player.username) {
+        console.log(`Player ${username} tried to join, but username already exists.`);
+        client.emit('usernameExists');
+        client.disconnect();
+        return;
+      }
+    }
+    
+    // Add player to game.
     game.players.push({
       username: username,
       score: 0,
