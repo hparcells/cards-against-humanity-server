@@ -10,15 +10,20 @@ const defaultGame = {
   gameState: {
     cards: [],
     blackCards: [],
-    czar: 0
-  }
+    czar: 0,
+    blackCard: '',
+    playedWhiteCards: []
+  },
+  started: false
 };
 let game = {
   players: [],
   gameState: {
     cards: [],
     blackCards: [],
-    czar: 0
+    czar: 0,
+    blackCard: {},
+    playedWhiteCards: []
   },
   started: false
 };
@@ -79,9 +84,30 @@ IO.on('connection', (client) => {
       }
     }
 
+    // Chose black card.
+    game.gameState.blackCard = game.gameState.blackCards[0];
+    game.gameState.blackCards.shift();
+    
     game.started = true;
     IO.emit('updatedGame', game);
     console.log('Game started.');
+  });
+  client.on('playedCard', (username, cardString) => {
+    // TODO: Handle pick two.
+    game.gameState.playedWhiteCards.push({
+      cards: cardString,
+      username: username
+    });
+
+    const clientIndex = game.players.indexOf(game.players.find((player) => {
+      return username === player.username;
+    }));
+    
+    // Update the client hand.
+    game.players[clientIndex].hand = game.players[clientIndex].hand.filter((value) => value !== cardString);
+
+    IO.emit('updatedGame', game);
+    console.log(game.gameState.playedWhiteCards);
   });
   client.on('playerDisconnect', (username) => {
     // Remove player.
@@ -92,6 +118,7 @@ IO.on('connection', (client) => {
     // If there is not enough people to join.
     if(game.players.length < 4 && game.started) {
       console.log('Not enough players connected. Ending game.');
+      IO.emit('gameEndNotEnoughPlayers');
       resetGame();
     }
   });
@@ -102,6 +129,6 @@ console.log(`Server started. Listening on port ${PORT}.`);
 
 function resetGame() {
   game = defaultGame;
-  IO.emit('gameEndNotEnoughPlayers');
+
   console.log('Game reset!');
 }
