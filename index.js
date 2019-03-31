@@ -17,13 +17,14 @@ let game = {
     cards: [],
     blackCards: [],
     czar: 0
-  }
+  },
+  started: false
 }
-let started = false;
 
 // Start.
 IO.on('connection', (client) => {
   client.on('newPlayer', (username) => {
+    console.log(`Player ${username} connected.`);
     // Check if the username already exists.
     for(const player of game.players) {
       if(username === player.username) {
@@ -41,10 +42,15 @@ IO.on('connection', (client) => {
       hand: []
     });
 
-    // Update the client's states.
+    // Update the client states.
     IO.emit('updatedGame', game);
-    console.log(`Player ${username} connected.`);
   });
+  client.on('start', () => {
+    game.started = true;
+
+    // TODO: Distribute cards.
+    IO.emit('updatedGame', game);
+  })
   client.on('playerDisconnect', (username) => {
     // Remove player.
     game.players.splice(game.players.findIndex((x) => x.username === username), 1);
@@ -52,13 +58,17 @@ IO.on('connection', (client) => {
     console.log(`Player ${username} disconnected.`);
 
     // If there is not enough people to join.
-    if(game.players.length < 4 && started) {
+    if(game.players.length < 4 && game.started) {
       resetGame();
     }
   });
 });
 SERVER.listen(PORT);
+console.log(`Server started. Listening on port ${PORT}.`);
+
 
 function resetGame() {
   game = defaultGame;
+  // TODO: Emit restart event.
+  // TODO: Disconnect all clients.
 }
