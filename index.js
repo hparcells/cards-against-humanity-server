@@ -1,3 +1,5 @@
+const fs = require('fs');
+
 const PORT = 3000;
 const SERVER = require('http').createServer();
 const IO = require('socket.io')(SERVER);
@@ -10,7 +12,7 @@ const defaultGame = {
     blackCards: [],
     czar: 0
   }
-}
+};
 let game = {
   players: [],
   gameState: {
@@ -19,7 +21,7 @@ let game = {
     czar: 0
   },
   started: false
-}
+};
 
 // Start.
 IO.on('connection', (client) => {
@@ -46,11 +48,41 @@ IO.on('connection', (client) => {
     IO.emit('updatedGame', game);
   });
   client.on('start', () => {
-    game.started = true;
+    console.log(`Starting game with ${game.players.length} players.`);
 
-    // TODO: Distribute cards.
+    // Get the deck.
+    const contents = fs.readFileSync('./sets/base.json');
+    const jsonContent = JSON.parse(contents);
+    
+    // Shuffle the decks.
+    // Borrowed from https://stackoverflow.com/a/2450976/10194810.
+    function shuffle(array) {
+      let currentIndex = array.length, temporaryValue, randomIndex;
+    
+      while (0 !== currentIndex) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex -= 1;
+        temporaryValue = array[currentIndex];
+        array[currentIndex] = array[randomIndex];
+        array[randomIndex] = temporaryValue;
+      }
+      return array;
+    }
+    game.gameState.blackCards = shuffle(jsonContent.blackCards);
+    game.gameState.cards = shuffle(jsonContent.whiteCards);
+
+    // Deal cards.
+    for(const player of game.players) {
+      for(let i = 0; i < 10; i++) {
+        player.hand.push(game.gameState.cards[0]);
+        game.gameState.cards.shift();
+      }
+    }
+
+    game.started = true;
     IO.emit('updatedGame', game);
-  })
+    console.log('Game started.');
+  });
   client.on('playerDisconnect', (username) => {
     // Remove player.
     game.players.splice(game.players.findIndex((x) => x.username === username), 1);
@@ -59,6 +91,7 @@ IO.on('connection', (client) => {
 
     // If there is not enough people to join.
     if(game.players.length < 4 && game.started) {
+      console.log('Not enough players connected. Ending game.');
       resetGame();
     }
   });
@@ -69,6 +102,6 @@ console.log(`Server started. Listening on port ${PORT}.`);
 
 function resetGame() {
   game = defaultGame;
-  // TODO: Emit restart event.
-  // TODO: Disconnect all clients.
+  IO.emit('gameEndNotEnoughPlayers');
+  console.log('Game reset!');
 }
