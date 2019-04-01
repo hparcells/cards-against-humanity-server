@@ -12,7 +12,8 @@ const defaultGame = {
     blackCards: [],
     czar: 0,
     blackCard: '',
-    playedWhiteCards: []
+    playedWhiteCards: [],
+    czarReady: false
   },
   started: false
 };
@@ -23,7 +24,8 @@ let game = {
     blackCards: [],
     czar: 0,
     blackCard: {},
-    playedWhiteCards: []
+    playedWhiteCards: [],
+    czarReady: false
   },
   started: false
 };
@@ -112,10 +114,17 @@ IO.on('connection', (client) => {
     
     // Remove card from client hand.
     game.players[clientIndex].hand = game.players[clientIndex].hand.filter((value) => value !== cardString);
-    // TODO: Add new card.
-    
+    // Add new card.
+    game.players[clientIndex].hand.push(game.gameState.cards[0]);
+    game.gameState.cards.shift();
+
+    let playedCards = 0;
+    for(const player of game.gameState.playedWhiteCards) {
+      playedCards += player.cards.length;
+    }
+    game.gameState.czarReady = playedCards === (game.players.length - 1) * game.gameState.blackCard.pick;
+
     IO.emit('updatedGame', game);
-    console.log(game.gameState.playedWhiteCards);
   });
   client.on('playerDisconnect', (username) => {
     // Remove player.
