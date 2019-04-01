@@ -13,7 +13,8 @@ const defaultGame = {
     czar: 0,
     blackCard: '',
     playedWhiteCards: [],
-    czarReady: false
+    czarReady: false,
+    czarHasPicked: false
   },
   started: false
 };
@@ -25,7 +26,8 @@ let game = {
     czar: 0,
     blackCard: {},
     playedWhiteCards: [],
-    czarReady: false
+    czarReady: false,
+    czarHasPicked: false
   },
   started: false
 };
@@ -125,6 +127,34 @@ IO.on('connection', (client) => {
     game.gameState.czarReady = playedCards === (game.players.length - 1) * game.gameState.blackCard.pick;
 
     IO.emit('updatedGame', game);
+  });
+  client.on('czarPicked', (username) => {
+    const clientIndex = game.players.indexOf(game.players.find((player) => {
+      return username === player.username;
+    }));
+
+    // Increase the score by one.
+    game.players[clientIndex].score++;
+    game.gameState.czarHasPicked = true;
+
+    IO.emit('updatedGame', game);
+
+    setTimeout(() => {
+      // TODO: increment czar
+      if(game.gameState.czar === game.players.length - 1) {
+        game.gameState.czar = 0;
+      }else {
+        game.gameState.czar++;
+      }
+      game.gameState.czarReady = false;
+      game.gameState.czarHasPicked = false;
+      game.gameState.playedWhiteCards = [];
+      
+      game.gameState.blackCard = game.gameState.blackCards[0];
+      game.gameState.blackCards.shift();
+
+      IO.emit('updatedGame', game);
+    }, 3000);
   });
   client.on('playerDisconnect', (username) => {
     // Remove player.
