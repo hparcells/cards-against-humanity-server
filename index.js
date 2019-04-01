@@ -11,7 +11,7 @@ const defaultGame = {
     cards: [],
     blackCards: [],
     czar: 0,
-    blackCard: '',
+    blackCard: {},
     playedWhiteCards: [],
     czarReady: false,
     czarHasPicked: false
@@ -132,15 +132,25 @@ IO.on('connection', (client) => {
     const clientIndex = game.players.indexOf(game.players.find((player) => {
       return username === player.username;
     }));
-
+    
     // Increase the score by one.
     game.players[clientIndex].score++;
     game.gameState.czarHasPicked = true;
 
+    // Check for winner.
+    for(const player of game.players) {
+      if(player.score === 10) {
+        IO.emit('winner', player.username, game.players);
+        console.log(`${player.username} won the game. Resetting.`);
+        resetGame();
+        return;
+      }
+    }
+
+    IO.emit('roundWinner', username);
     IO.emit('updatedGame', game);
 
     setTimeout(() => {
-      // TODO: increment czar
       if(game.gameState.czar === game.players.length - 1) {
         game.gameState.czar = 0;
       }else {
@@ -149,11 +159,12 @@ IO.on('connection', (client) => {
       game.gameState.czarReady = false;
       game.gameState.czarHasPicked = false;
       game.gameState.playedWhiteCards = [];
-      
+
       game.gameState.blackCard = game.gameState.blackCards[0];
       game.gameState.blackCards.shift();
 
       IO.emit('updatedGame', game);
+      console.log('New round.');
     }, 3000);
   });
   client.on('playerDisconnect', (username) => {
