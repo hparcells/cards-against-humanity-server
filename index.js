@@ -93,19 +93,27 @@ IO.on('connection', (client) => {
     console.log('Game started.');
   });
   client.on('playedCard', (username, cardString) => {
-    // TODO: Handle pick two.
-    game.gameState.playedWhiteCards.push({
-      cards: cardString,
-      username: username
-    });
+    // Add new object to playedWhiteCards.
+    if(!game.gameState.playedWhiteCards.find((object) => {
+      return object.username === username;
+    })) {
+      game.gameState.playedWhiteCards.push({
+        cards: [],
+        username: username
+      });
+    }
+    game.gameState.playedWhiteCards.find((object) => {
+      return object.username === username;
+    }).cards.push(cardString);
 
     const clientIndex = game.players.indexOf(game.players.find((player) => {
       return username === player.username;
     }));
     
-    // Update the client hand.
+    // Remove card from client hand.
     game.players[clientIndex].hand = game.players[clientIndex].hand.filter((value) => value !== cardString);
-
+    // TODO: Add new card.
+    
     IO.emit('updatedGame', game);
     console.log(game.gameState.playedWhiteCards);
   });
@@ -128,6 +136,7 @@ console.log(`Server started. Listening on port ${PORT}.`);
 
 
 function resetGame() {
+  // Reset game.
   game = defaultGame;
 
   console.log('Game reset!');
