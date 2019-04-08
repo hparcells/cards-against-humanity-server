@@ -180,6 +180,16 @@ IO.on('connection', (client) => {
       resetGame();
     }
   });
+  client.on('kill', () => {
+    function getConnectedSockets() {
+      return Object.values(IO.of('/').connected);
+    }
+    getConnectedSockets().forEach((socket) => {
+      socket.disconnect(true);
+    });
+    resetGame();
+    console.log('Host killed the game.');
+  });
 });
 SERVER.listen(PORT);
 console.log(`Server started. Listening on port ${PORT}.`);
