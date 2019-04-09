@@ -5,6 +5,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "entities": "^1.1.2",
     "express": "^4.16.4",
     "fs": "0.0.1-security",
     "os": "^0.1.1",

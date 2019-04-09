@@ -1,4 +1,5 @@
 const fs = require('fs');
+const entities = require('entities');
 
 const PORT = 3000;
 const SERVER = require('http').createServer();
@@ -98,11 +99,12 @@ IO.on('connection', (client) => {
 
       // Add the black cards.
       for(const blackCard of blackCards) {
+        blackCard.text = entities.decodeHTML(blackCard.text).replace('_', '_____');
         jsonContent.blackCards.push(blackCard);
       }
       // Add the white cards.
       for(const whiteCard of whiteCards) {
-        jsonContent.whiteCards.push(whiteCard);
+        jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
       }
     });
     
