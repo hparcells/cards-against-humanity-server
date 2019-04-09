@@ -1,4 +1,7 @@
 {
+  "name": "Base Set",
+  "codeName": "base-set",
+  "official": true,
   "blackCards": [
     {
       "text": "Why can't I sleep at night?",

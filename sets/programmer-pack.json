@@ -1,0 +1,14 @@
+{
+  "name": "Programmer Pack",
+  "codeName": "programmer-pack",
+  "official": false,
+  "blackCards": [
+    {
+      "text": "What caused the intern to get fired?",
+      "pick": 1
+    }
+  ],
+  "whiteCards": [
+    "Works on my machine."  
+  ]
+}

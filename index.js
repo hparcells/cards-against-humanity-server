@@ -16,7 +16,8 @@ const defaultGame = {
     czarReady: false,
     czarHasPicked: false
   },
-  started: false
+  started: false,
+  decks: []
 };
 let game = {
   players: [],
@@ -29,13 +30,15 @@ let game = {
     czarReady: false,
     czarHasPicked: false
   },
-  started: false
+  started: false,
+  decks: []
 };
 
 // Start.
 IO.on('connection', (client) => {
   client.on('newPlayer', (username) => {
     console.log(`Player ${username} connected.`);
+
     // Check if the username already exists.
     for(const player of game.players) {
       if(username === player.username) {
@@ -45,7 +48,6 @@ IO.on('connection', (client) => {
         return;
       }
     }
-    
     // Add player to game.
     game.players.push({
       username: username,
@@ -53,15 +55,56 @@ IO.on('connection', (client) => {
       hand: []
     });
 
+    // Get the decks.
+    if(game.players.length === 1) {
+      fs.readdirSync('./sets/').forEach((file) => {
+        const contents = fs.readFileSync(`./sets/${file}`);
+        const jsonContent = JSON.parse(contents);
+
+        game.decks.push({
+          name: jsonContent.name,
+          codeName: jsonContent.codeName,
+          official: jsonContent.official,
+          selected: jsonContent.codeName === 'base-set'
+        });
+      });
+    }
+    
+    // Update the client states.
+    IO.emit('updatedGame', game);
+  });
+  client.on('updatedDecks', (decks) => {
+    game.decks = decks;
+
     // Update the client states.
     IO.emit('updatedGame', game);
   });
   client.on('start', () => {
     console.log(`Starting game with ${game.players.length} players.`);
 
-    // Get the deck.
-    const contents = fs.readFileSync('./sets/base.json');
-    const jsonContent = JSON.parse(contents);
+    const decksToUse = game.decks.filter((deck) => deck.selected).map((deck) => {
+      return deck.codeName;
+    });
+
+    // Get the decks.
+    const jsonContent = {
+      blackCards: [],
+      whiteCards: []
+    };
+    decksToUse.forEach((deck) => {
+      const deckContents = fs.readFileSync(`./sets/${deck}.json`);
+      const whiteCards = JSON.parse(deckContents).whiteCards;
+      const blackCards = JSON.parse(deckContents).blackCards;
+
+      // Add the black cards.
+      for(const blackCard of blackCards) {
+        jsonContent.blackCards.push(blackCard);
+      }
+      // Add the white cards.
+      for(const whiteCard of whiteCards) {
+        jsonContent.whiteCards.push(whiteCard);
+      }
+    });
     
     // Shuffle the decks.
     // Borrowed from https://stackoverflow.com/a/2450976/10194810.
