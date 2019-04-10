@@ -108,7 +108,7 @@ IO.on('connection', (client) => {
 
       // Add the black cards.
       for(const blackCard of blackCards) {
-        blackCard.text = entities.decodeHTML(blackCard.text).replace('_', '_____');
+        blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
         jsonContent.blackCards.push(blackCard);
       }
       // Add the white cards.
