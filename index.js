@@ -56,6 +56,15 @@ IO.on('connection', (client) => {
       hand: []
     });
 
+    // If the player joins in an in progress game.
+    if(game.started) {
+      const playerIndex = game.players.findIndex((player) => player.username === username);
+      for(let cards = 0; cards < 10; cards++) {
+        game.players[playerIndex].hand.push(game.gameState.cards[0]);
+        game.gameState.cards.shift();
+      }
+    }
+
     // Get the decks.
     if(game.players.length === 1) {
       fs.readdirSync('./sets/').forEach((file) => {
@@ -161,9 +170,6 @@ IO.on('connection', (client) => {
     
     // Remove card from client hand.
     game.players[clientIndex].hand = game.players[clientIndex].hand.filter((value) => value !== cardString);
-    // Add new card.
-    game.players[clientIndex].hand.push(game.gameState.cards[0]);
-    game.gameState.cards.shift();
 
     let playedCards = 0;
     for(const player of game.gameState.playedWhiteCards) {
@@ -189,6 +195,18 @@ IO.on('connection', (client) => {
         console.log(`${player.username} won the game. Resetting.`);
         resetGame();
         return;
+      }
+    }
+
+    // Deal more cards.
+    for(const player of game.players) {
+      if(player.hand.length < 10) {
+        const cardsToAdd = 10 - player.hand.length;
+
+        for(let cardsLeft = cardsToAdd; cardsLeft > 0; cardsLeft--) {
+          player.hand.push(game.gameState.cards[0]);
+          game.gameState.cards.shift();
+        }
       }
     }
 
