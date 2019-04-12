@@ -18,7 +18,8 @@ const defaultGame = {
     czarHasPicked: false
   },
   started: false,
-  decks: []
+  decks: [],
+  customDecks: []
 };
 let game = {
   players: [],
@@ -32,7 +33,8 @@ let game = {
     czarHasPicked: false
   },
   started: false,
-  decks: []
+  decks: [],
+  customDecks: []
 };
 
 // Start.
@@ -75,6 +77,7 @@ IO.on('connection', (client) => {
           name: jsonContent.name,
           codeName: jsonContent.codeName,
           official: jsonContent.official,
+          custom: false,
           selected: jsonContent.codeName === 'base-set'
         });
       });
@@ -87,6 +90,76 @@ IO.on('connection', (client) => {
     game.decks = decks;
 
     // Update the client states.
+    IO.emit('updatedGame', game);
+  });
+  client.on('newCustomDeck', (deckFile) => {
+    const customDeckJSON = JSON.parse(deckFile.toString('UTF8'));
+    
+    const hasName = customDeckJSON.name;
+    const hasCodeName = customDeckJSON.codeName;
+    const hasNames = hasName && hasCodeName;
+    let formattedCorrectly = true;
+
+    // Check if the deck contains a name and a codeName.
+    if(!hasNames) {
+      if(!hasName && !hasCodeName) {
+        IO.emit('badCustomDeck', 'Keys: name and codeName, were not found. Make sure you spelled the keys correctly and try again.');
+      }else if(!hasName) {
+        IO.emit('badCustomDeck', 'Key: name, was not found. Make sure you spelled the keys correctly and try again.');
+      }else if(!hasCodeName) {
+        IO.emit('badCustomDeck', 'Key: codeName, was not found. Make sure you spelled the keys correctly and try again.');
+      }
+      return;
+    }
+
+    // Check if the codename exists in another deck.
+    game.decks.forEach((deck) => {
+      if(deck.codeName === customDeckJSON.codeName) {
+        IO.emit('badCustomDeck', 'The code name you used for your deck already exists in another deck. Change the code name and try again.');
+        formattedCorrectly = false;
+      }
+    });
+    game.customDecks.forEach((deck) => {
+      if(deck.codeName === customDeckJSON.codeName) {
+        IO.emit('badCustomDeck', 'The code name you used for your deck already exists in another deck. Change the code name and try again.');
+        formattedCorrectly = false;
+      }
+    });
+    
+    // Add deck to deck list.
+    game.decks.push({
+      name: customDeckJSON.name,
+      customDeckJSON: customDeckJSON.codeName,
+      official: false,
+      custom: true,
+      selected: true
+    });
+
+    // Add the cards to the game.
+    const newCustomDeck = {
+      codeName: customDeckJSON.codeName,
+      blackCards: [],
+      whiteCards: []
+    };
+    if(formattedCorrectly) {
+      if(customDeckJSON.blackCards) {
+        for(const card of customDeckJSON.blackCards) {
+          if(typeof card.text === 'string' && typeof card.pick === 'number') {
+            newCustomDeck.blackCards.push(card);
+          }
+        }
+      }
+      if(customDeckJSON.whiteCards) {
+        for(const card of customDeckJSON.whiteCards) {
+          if(typeof card === 'string') {
+            newCustomDeck.whiteCards.push(card);
+          }
+        }
+      }
+    }
+    game.customDecks.push(newCustomDeck);
+
+    // Send new data.
     IO.emit('updatedGame', game);
   });
   client.on('start', () => {
@@ -240,6 +313,11 @@ IO.on('connection', (client) => {
     if(game.players.length < 4 && game.started) {
       console.log('Not enough players connected. Ending game.');
       IO.emit('gameEndNotEnoughPlayers');
+      resetGame();
+      return;
+    }
+    if(game.players.length === 0) {
+      console.log('Room is empty. Resetting.');
       resetGame();
     }
   });
