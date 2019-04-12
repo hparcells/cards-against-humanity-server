@@ -93,7 +93,13 @@ IO.on('connection', (client) => {
     IO.emit('updatedGame', game);
   });
   client.on('newCustomDeck', (deckFile) => {
-    const customDeckJSON = JSON.parse(deckFile.toString('UTF8'));
+    let customDeckJSON;
+    try {
+      customDeckJSON = JSON.parse(deckFile.toString('UTF8'));
+    }catch(err) {
+      IO.emit('badCustomDeck', 'There was an error parsing the file. Make sure there is no trailing commas and try again.');
+      return;
+    }
     
     const hasName = customDeckJSON.name;
     const hasCodeName = customDeckJSON.codeName;
