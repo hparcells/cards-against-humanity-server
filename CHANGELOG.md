@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Additions
+- Custom sets!
+  - You can now import a JSON file (documentation coming soon) to load custom cards that you want to play with.
+- Extended the Programmer Pack
+
 ### Changes
 - New cards are drawn after the Czar picks.
 
