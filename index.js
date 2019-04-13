@@ -132,23 +132,25 @@ IO.on('connection', (client) => {
       }
     });
     
-    // Add deck to deck list.
-    game.decks.push({
-      name: customDeckJSON.name,
-      codeName: customDeckJSON.codeName,
-      customDeckJSON: customDeckJSON.codeName,
-      official: false,
-      custom: true,
-      selected: true
-    });
-
-    // Add the cards to the game.
-    const newCustomDeck = {
-      codeName: customDeckJSON.codeName,
-      blackCards: [],
-      whiteCards: []
-    };
     if(formattedCorrectly) {
+      // Add deck to deck list.
+      game.decks.push({
+        name: customDeckJSON.name,
+        codeName: customDeckJSON.codeName,
+        customDeckJSON: customDeckJSON.codeName,
+        official: false,
+        custom: true,
+        selected: true
+      });
+
+      // Add the cards to the game.
+      const newCustomDeck = {
+        codeName: customDeckJSON.codeName,
+        blackCards: [],
+        whiteCards: []
+      };
+
+      // If there is black cards.
       if(customDeckJSON.blackCards) {
         for(const card of customDeckJSON.blackCards) {
           // Check if the card is valid and ignore if it isn't.
@@ -157,6 +159,7 @@ IO.on('connection', (client) => {
           }
         }
       }
+      // If there is white cards.
       if(customDeckJSON.whiteCards) {
         for(const card of customDeckJSON.whiteCards) {
           // Check if the card is valid and ignore if it isn't.
@@ -173,67 +176,7 @@ IO.on('connection', (client) => {
   });
   client.on('start', () => {
     console.log(`Starting game with ${game.players.length} players.`);
-
-    const defaultDecksToUse = game.decks.filter((deck) => deck.selected && !deck.custom).map((deck) => {
-      return deck.codeName;
-    });
-    const customDecksToUse = game.decks.filter((deck) => deck.selected && deck.custom).map((deck) => {
-      return deck.codeName;
-    });
-
-    const jsonContent = {
-      blackCards: [],
-      whiteCards: []
-    };
-    // Get the default decks.
-    defaultDecksToUse.forEach((deckCodeName) => {
-      const deckContents = fs.readFileSync(`./sets/${deckCodeName}.json`);
-      const whiteCards = JSON.parse(deckContents).whiteCards;
-      const blackCards = JSON.parse(deckContents).blackCards;
-
-      // Add the black cards.
-      for(const blackCard of blackCards) {
-        blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
-        jsonContent.blackCards.push(blackCard);
-      }
-      // Add the white cards.
-      for(const whiteCard of whiteCards) {
-        jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
-      }
-    });
-    // Get the custom decks.
-    customDecksToUse.forEach((deckCodeName) => {
-      const customDeckIndex = game.customDecks.findIndex((customDeck) => customDeck.codeName === deckCodeName);
-      const blackCards = game.customDecks[customDeckIndex].blackCards;
-      const whiteCards = game.customDecks[customDeckIndex].whiteCards;
-
-      // Add the black cards.
-      for(const blackCard of blackCards) {
-        blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
-        jsonContent.blackCards.push(blackCard);
-      }
-      // Add the white cards.
-      for(const whiteCard of whiteCards) {
-        jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
-      }
-    });
-
-    // Shuffle the decks.
-    // Borrowed from https://stackoverflow.com/a/2450976/10194810.
-    function shuffle(array) {
-      let currentIndex = array.length, temporaryValue, randomIndex;
-    
-      while (0 !== currentIndex) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex -= 1;
-        temporaryValue = array[currentIndex];
-        array[currentIndex] = array[randomIndex];
-        array[randomIndex] = temporaryValue;
-      }
-      return array;
-    }
-    game.gameState.blackCards = shuffle(jsonContent.blackCards);
-    game.gameState.cards = shuffle(jsonContent.whiteCards);
+    addDecks();
 
     // Deal cards.
     for(const player of game.players) {
@@ -305,6 +248,12 @@ IO.on('connection', (client) => {
         const cardsToAdd = 10 - player.hand.length;
 
         for(let cardsLeft = cardsToAdd; cardsLeft > 0; cardsLeft--) {
+          // Check if the white card deck is empty.
+          if(game.gameState.cards.length === 0) {
+            addDecks();
+          }
+
+          // Add card.
           player.hand.push(game.gameState.cards[0]);
           game.gameState.cards.shift();
         }
@@ -363,7 +312,68 @@ IO.on('connection', (client) => {
 SERVER.listen(PORT);
 console.log(`Server started. Listening on port ${PORT}.`);
 
+function addDecks() {
+  const defaultDecksToUse = game.decks.filter((deck) => deck.selected && !deck.custom).map((deck) => {
+    return deck.codeName;
+  });
+  const customDecksToUse = game.decks.filter((deck) => deck.selected && deck.custom).map((deck) => {
+    return deck.codeName;
+  });
 
+  const jsonContent = {
+    blackCards: [],
+    whiteCards: []
+  };
+  // Get the default decks.
+  defaultDecksToUse.forEach((deckCodeName) => {
+    const deckContents = fs.readFileSync(`./sets/${deckCodeName}.json`);
+    const whiteCards = JSON.parse(deckContents).whiteCards;
+    const blackCards = JSON.parse(deckContents).blackCards;
+
+    // Add the black cards.
+    for(const blackCard of blackCards) {
+      blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
+      jsonContent.blackCards.push(blackCard);
+    }
+    // Add the white cards.
+    for(const whiteCard of whiteCards) {
+      jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
+    }
+  });
+  // Get the custom decks.
+  customDecksToUse.forEach((deckCodeName) => {
+    const customDeckIndex = game.customDecks.findIndex((customDeck) => customDeck.codeName === deckCodeName);
+    const blackCards = game.customDecks[customDeckIndex].blackCards;
+    const whiteCards = game.customDecks[customDeckIndex].whiteCards;
+
+    // Add the black cards.
+    for(const blackCard of blackCards) {
+      blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
+      jsonContent.blackCards.push(blackCard);
+    }
+    // Add the white cards.
+    for(const whiteCard of whiteCards) {
+      jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
+    }
+  });
+
+  // Shuffle the decks.
+  // Borrowed from https://stackoverflow.com/a/2450976/10194810.
+  function shuffle(array) {
+    let currentIndex = array.length, temporaryValue, randomIndex;
+  
+    while (0 !== currentIndex) {
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex -= 1;
+      temporaryValue = array[currentIndex];
+      array[currentIndex] = array[randomIndex];
+      array[randomIndex] = temporaryValue;
+    }
+    return array;
+  }
+  game.gameState.blackCards = shuffle(jsonContent.blackCards);
+  game.gameState.cards = shuffle(jsonContent.whiteCards);
+}
 function resetGame() {
   // Reset game.
   game = defaultGame;
