@@ -37,6 +37,77 @@ let game = {
   customDecks: []
 };
 
+function addDecks() {
+  const defaultDecksToUse = game.decks.filter((deck) => deck.selected && !deck.custom).map((deck) => {
+    return deck.codeName;
+  });
+  const customDecksToUse = game.decks.filter((deck) => deck.selected && deck.custom).map((deck) => {
+    return deck.codeName;
+  });
+
+  const jsonContent = {
+    blackCards: [],
+    whiteCards: []
+  };
+  // Get the default decks.
+  defaultDecksToUse.forEach((deckCodeName) => {
+    const deckContents = fs.readFileSync(`./sets/${deckCodeName}.json`);
+    const whiteCards = JSON.parse(deckContents).whiteCards;
+    const blackCards = JSON.parse(deckContents).blackCards;
+
+    // Add the black cards.
+    for(const blackCard of blackCards) {
+      blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
+      jsonContent.blackCards.push(blackCard);
+    }
+    // Add the white cards.
+    for(const whiteCard of whiteCards) {
+      jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
+    }
+  });
+  // Get the custom decks.
+  customDecksToUse.forEach((deckCodeName) => {
+    const customDeckIndex = game.customDecks.findIndex((customDeck) => customDeck.codeName === deckCodeName);
+    const blackCards = game.customDecks[customDeckIndex].blackCards;
+    const whiteCards = game.customDecks[customDeckIndex].whiteCards;
+
+    // Add the black cards.
+    for(const blackCard of blackCards) {
+      blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
+      jsonContent.blackCards.push(blackCard);
+    }
+    // Add the white cards.
+    for(const whiteCard of whiteCards) {
+      jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
+    }
+  });
+
+  // Shuffle the decks.
+  // Borrowed from https://stackoverflow.com/a/2450976/10194810.
+  function shuffle(array) {
+    let currentIndex = array.length, temporaryValue, randomIndex;
+  
+    while (0 !== currentIndex) {
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex -= 1;
+      temporaryValue = array[currentIndex];
+      array[currentIndex] = array[randomIndex];
+      array[randomIndex] = temporaryValue;
+    }
+    return array;
+  }
+  game.gameState.blackCards = shuffle(jsonContent.blackCards);
+  game.gameState.whiteCards = shuffle(jsonContent.whiteCards);
+}
+function getPlayerIndex(username) {
+  return game.players.findIndex((player) => player.username === username);
+}
+function resetGame() {
+  // Reset game.
+  game = defaultGame;
+  console.log('Game reset!');
+}
+
 // Start.
 IO.on('connection', (client) => {
   client.on('newPlayer', (username) => {
@@ -60,7 +131,7 @@ IO.on('connection', (client) => {
 
     // If the player joins in an in progress game.
     if(game.started) {
-      const playerIndex = game.players.findIndex((player) => player.username === username);
+      const playerIndex = getPlayerIndex(username);
       for(let cards = 0; cards < 10; cards++) {
         game.players[playerIndex].hand.push(game.gameState.whiteCards[0]);
         game.gameState.whiteCards.shift();
@@ -208,12 +279,10 @@ IO.on('connection', (client) => {
       return object.username === username;
     }).cards.push(cardString);
 
-    const clientIndex = game.players.indexOf(game.players.find((player) => {
-      return username === player.username;
-    }));
+    const playerIndex = getPlayerIndex(username);
     
     // Remove card from client hand.
-    game.players[clientIndex].hand = game.players[clientIndex].hand.filter((value) => value !== cardString);
+    game.players[playerIndex].hand = game.players[playerIndex].hand.filter((value) => value !== cardString);
 
     let playedCards = 0;
     for(const player of game.gameState.playedWhiteCards) {
@@ -224,12 +293,10 @@ IO.on('connection', (client) => {
     IO.emit('updatedGame', game);
   });
   client.on('czarPicked', (username) => {
-    const clientIndex = game.players.indexOf(game.players.find((player) => {
-      return username === player.username;
-    }));
+    const playerIndex = getPlayerIndex(username);
     
     // Increase the score by one.
-    game.players[clientIndex].score++;
+    game.players[playerIndex].score++;
     game.gameState.czarHasPicked = true;
 
     // Check for winner.
@@ -311,72 +378,3 @@ IO.on('connection', (client) => {
 });
 SERVER.listen(PORT);
 console.log(`Server started. Listening on port ${PORT}.`);
-
-function addDecks() {
-  const defaultDecksToUse = game.decks.filter((deck) => deck.selected && !deck.custom).map((deck) => {
-    return deck.codeName;
-  });
-  const customDecksToUse = game.decks.filter((deck) => deck.selected && deck.custom).map((deck) => {
-    return deck.codeName;
-  });
-
-  const jsonContent = {
-    blackCards: [],
-    whiteCards: []
-  };
-  // Get the default decks.
-  defaultDecksToUse.forEach((deckCodeName) => {
-    const deckContents = fs.readFileSync(`./sets/${deckCodeName}.json`);
-    const whiteCards = JSON.parse(deckContents).whiteCards;
-    const blackCards = JSON.parse(deckContents).blackCards;
-
-    // Add the black cards.
-    for(const blackCard of blackCards) {
-      blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
-      jsonContent.blackCards.push(blackCard);
-    }
-    // Add the white cards.
-    for(const whiteCard of whiteCards) {
-      jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
-    }
-  });
-  // Get the custom decks.
-  customDecksToUse.forEach((deckCodeName) => {
-    const customDeckIndex = game.customDecks.findIndex((customDeck) => customDeck.codeName === deckCodeName);
-    const blackCards = game.customDecks[customDeckIndex].blackCards;
-    const whiteCards = game.customDecks[customDeckIndex].whiteCards;
-
-    // Add the black cards.
-    for(const blackCard of blackCards) {
-      blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
-      jsonContent.blackCards.push(blackCard);
-    }
-    // Add the white cards.
-    for(const whiteCard of whiteCards) {
-      jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
-    }
-  });
-
-  // Shuffle the decks.
-  // Borrowed from https://stackoverflow.com/a/2450976/10194810.
-  function shuffle(array) {
-    let currentIndex = array.length, temporaryValue, randomIndex;
-  
-    while (0 !== currentIndex) {
-      randomIndex = Math.floor(Math.random() * currentIndex);
-      currentIndex -= 1;
-      temporaryValue = array[currentIndex];
-      array[currentIndex] = array[randomIndex];
-      array[randomIndex] = temporaryValue;
-    }
-    return array;
-  }
-  game.gameState.blackCards = shuffle(jsonContent.blackCards);
-  game.gameState.whiteCards = shuffle(jsonContent.whiteCards);
-}
-function resetGame() {
-  // Reset game.
-  game = defaultGame;
-
-  console.log('Game reset!');
-}
