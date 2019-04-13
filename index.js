@@ -9,7 +9,7 @@ const IO = require('socket.io')(SERVER);
 const defaultGame = {
   players: [],
   gameState: {
-    cards: [],
+    whiteCards: [],
     blackCards: [],
     czar: 0,
     blackCard: {},
@@ -24,7 +24,7 @@ const defaultGame = {
 let game = {
   players: [],
   gameState: {
-    cards: [],
+    whiteCards: [],
     blackCards: [],
     czar: 0,
     blackCard: {},
@@ -62,8 +62,8 @@ IO.on('connection', (client) => {
     if(game.started) {
       const playerIndex = game.players.findIndex((player) => player.username === username);
       for(let cards = 0; cards < 10; cards++) {
-        game.players[playerIndex].hand.push(game.gameState.cards[0]);
-        game.gameState.cards.shift();
+        game.players[playerIndex].hand.push(game.gameState.whiteCards[0]);
+        game.gameState.whiteCards.shift();
       }
     }
 
@@ -181,8 +181,8 @@ IO.on('connection', (client) => {
     // Deal cards.
     for(const player of game.players) {
       for(let i = 0; i < 10; i++) {
-        player.hand.push(game.gameState.cards[0]);
-        game.gameState.cards.shift();
+        player.hand.push(game.gameState.whiteCards[0]);
+        game.gameState.whiteCards.shift();
       }
     }
 
@@ -249,13 +249,13 @@ IO.on('connection', (client) => {
 
         for(let cardsLeft = cardsToAdd; cardsLeft > 0; cardsLeft--) {
           // Check if the white card deck is empty.
-          if(game.gameState.cards.length === 0) {
+          if(game.gameState.whiteCards.length === 0) {
             addDecks();
           }
 
           // Add card.
-          player.hand.push(game.gameState.cards[0]);
-          game.gameState.cards.shift();
+          player.hand.push(game.gameState.whiteCards[0]);
+          game.gameState.whiteCards.shift();
         }
       }
     }
@@ -372,7 +372,7 @@ function addDecks() {
     return array;
   }
   game.gameState.blackCards = shuffle(jsonContent.blackCards);
-  game.gameState.cards = shuffle(jsonContent.whiteCards);
+  game.gameState.whiteCards = shuffle(jsonContent.whiteCards);
 }
 function resetGame() {
   // Reset game.
