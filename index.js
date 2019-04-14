@@ -23,6 +23,7 @@ const defaultGame = {
 };
 let game = {
   players: [],
+  timeoutTime: 0,
   gameState: {
     whiteCards: [],
     blackCards: [],
@@ -245,7 +246,7 @@ IO.on('connection', (client) => {
     // Send new data.
     IO.emit('updatedGame', game);
   });
-  client.on('start', () => {
+  client.on('start', (timeoutTime) => {
     console.log(`Starting game with ${game.players.length} players.`);
     addDecks();
 
@@ -263,6 +264,11 @@ IO.on('connection', (client) => {
     
     game.started = true;
     IO.emit('updatedGame', game);
+
+    // Set the timeout times.
+    game.timeoutTime = timeoutTime;
+    IO.emit('roundStart', game.timeoutTime);
+
     console.log('Game started.');
   });
   client.on('playedCard', (username, cardString) => {
@@ -344,6 +350,7 @@ IO.on('connection', (client) => {
       game.gameState.blackCards.shift();
 
       IO.emit('updatedGame', game);
+      IO.emit('roundStart', game.timeoutTime);
       console.log('New round.');
     }, 3000);
   });
