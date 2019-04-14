@@ -13,6 +13,7 @@ const defaultGame = {
     blackCards: [],
     czar: 0,
     blackCard: {},
+    turnTimeLeft: null,
     playedWhiteCards: [],
     czarReady: false,
     czarHasPicked: false
@@ -29,6 +30,7 @@ let game = {
     blackCards: [],
     czar: 0,
     blackCard: {},
+    turnTimeLeft: null,
     playedWhiteCards: [],
     czarReady: false,
     czarHasPicked: false
@@ -37,6 +39,8 @@ let game = {
   decks: [],
   customDecks: []
 };
+
+let timeLeftInterval;
 
 function addDecks() {
   const defaultDecksToUse = game.decks.filter((deck) => deck.selected && !deck.custom).map((deck) => {
@@ -271,6 +275,29 @@ IO.on('connection', (client) => {
 
     console.log('Game started.');
   });
+  client.on('roundStart', (roundStartTime) => {
+    const roundTime = game.timeoutTime;
+    const minutes = Math.floor(roundTime / 60);
+    const seconds = roundTime - minutes * 60;
+    const formattedTimeLeft = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    game.gameState.turnTimeLeft = formattedTimeLeft;
+    IO.emit('updatedGame', game);
+
+    timeLeftInterval = setInterval(() => {
+      const timeLeft = Math.ceil((game.timeoutTime * 1000 - (Date.now() - roundStartTime)) / 1000);
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft - minutes * 60;
+      const formattedTimeLeft = `${minutes}:${String(seconds).padStart(2, '0')}`;
+
+      game.gameState.turnTimeLeft = formattedTimeLeft;
+
+      // Stop when zero.
+      if(minutes === 0 && seconds === 0) {
+        clearInterval(timeLeftInterval);
+      }
+      IO.emit('updatedGame', game);
+    }, 1000);
+  });
   client.on('playedCard', (username, cardString) => {
     // Add new object to playedWhiteCards.
     if(!game.gameState.playedWhiteCards.find((object) => {
@@ -295,6 +322,10 @@ IO.on('connection', (client) => {
       playedCards += player.cards.length;
     }
     game.gameState.czarReady = playedCards === (game.players.length - 1) * game.gameState.blackCard.pick;
+
+    if(game.gameState.czarReady) {
+      clearInterval(timeLeftInterval);
+    }
 
     IO.emit('updatedGame', game);
   });
