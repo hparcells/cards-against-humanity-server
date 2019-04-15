@@ -364,7 +364,7 @@ IO.on('connection', (client) => {
 
     // Check for winner.
     for(const player of game.players) {
-      if(player.score === 2) {
+      if(player.score === 10) {
         game.log.push(`Player ${player.username} won the game!`);
         IO.emit('winner', player.username, game.players, game.log);
         console.log(`${player.username} won the game. Resetting.`);
