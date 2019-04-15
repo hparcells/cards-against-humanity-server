@@ -20,7 +20,8 @@ const defaultGame = {
   },
   started: false,
   decks: [],
-  customDecks: []
+  customDecks: [],
+  log: []
 };
 let game = {
   players: [],
@@ -37,12 +38,13 @@ let game = {
   },
   started: false,
   decks: [],
-  customDecks: []
+  customDecks: [],
+  log: []
 };
 
 let timeLeftInterval;
 
-function addDecks() {
+function addDecks(addBlackCards, addWhiteCards) {
   const defaultDecksToUse = game.decks.filter((deck) => deck.selected && !deck.custom).map((deck) => {
     return deck.codeName;
   });
@@ -57,33 +59,43 @@ function addDecks() {
   // Get the default decks.
   defaultDecksToUse.forEach((deckCodeName) => {
     const deckContents = fs.readFileSync(`./sets/${deckCodeName}.json`);
-    const whiteCards = JSON.parse(deckContents).whiteCards;
-    const blackCards = JSON.parse(deckContents).blackCards;
-
+    
     // Add the black cards.
-    for(const blackCard of blackCards) {
-      blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
-      jsonContent.blackCards.push(blackCard);
+    if(addBlackCards) {
+      const blackCards = JSON.parse(deckContents).blackCards;
+      for(const blackCard of blackCards) {
+        blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
+        jsonContent.blackCards.push(blackCard);
+      }
     }
+    
     // Add the white cards.
-    for(const whiteCard of whiteCards) {
-      jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
+    if(addWhiteCards) {
+      const whiteCards = JSON.parse(deckContents).whiteCards;
+      for(const whiteCard of whiteCards) {
+        jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
+      }
     }
   });
   // Get the custom decks.
   customDecksToUse.forEach((deckCodeName) => {
     const customDeckIndex = game.customDecks.findIndex((customDeck) => customDeck.codeName === deckCodeName);
-    const blackCards = game.customDecks[customDeckIndex].blackCards;
-    const whiteCards = game.customDecks[customDeckIndex].whiteCards;
-
+    
     // Add the black cards.
-    for(const blackCard of blackCards) {
-      blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
-      jsonContent.blackCards.push(blackCard);
+    if(addBlackCards) {
+      const blackCards = game.customDecks[customDeckIndex].blackCards;
+      for(const blackCard of blackCards) {
+        blackCard.text = entities.decodeHTML(blackCard.text).replace(/_+/g, '_____');
+        jsonContent.blackCards.push(blackCard);
+      }
     }
+
     // Add the white cards.
-    for(const whiteCard of whiteCards) {
-      jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
+    if(addWhiteCards) {
+      const whiteCards = game.customDecks[customDeckIndex].whiteCards;
+      for(const whiteCard of whiteCards) {
+        jsonContent.whiteCards.push(entities.decodeHTML(whiteCard));
+      }
     }
   });
 
@@ -117,6 +129,7 @@ function resetGame() {
 IO.on('connection', (client) => {
   client.on('newPlayer', (username) => {
     console.log(`Player ${username} connected.`);
+    game.log.push(`Player ${username} connected.`);
 
     // Check if the username already exists.
     for(const player of game.players) {
@@ -246,25 +259,34 @@ IO.on('connection', (client) => {
       }
     }
     game.customDecks.push(newCustomDeck);
+    game.log.push(`Custom Deck: ${customDeckJSON.name} added.`);
 
     // Send new data.
     IO.emit('updatedGame', game);
   });
   client.on('start', (timeoutTime) => {
     console.log(`Starting game with ${game.players.length} players.`);
-    addDecks();
+    addDecks(true, true);
 
     // Deal cards.
     for(const player of game.players) {
+      game.log.push(`Player ${player.username} Drawing White Cards:`);
+
       for(let i = 0; i < 10; i++) {
+        game.log.push(`Player ${player.username} White Card #${i + 1}: ${game.gameState.whiteCards[0]}`);
         player.hand.push(game.gameState.whiteCards[0]);
         game.gameState.whiteCards.shift();
       }
     }
 
     // Chose black card.
+    game.log.push(`Black Card in Play: ${game.gameState.blackCards[0].text}`);
     game.gameState.blackCard = game.gameState.blackCards[0];
     game.gameState.blackCards.shift();
+    
+
+    const decks = game.decks.filter((deck) => deck.selected).map((deck) => deck.name);
+    game.log.push(`Starting Game with Decks: ${decks.join(' ')}.`);
     
     game.started = true;
     IO.emit('updatedGame', game);
@@ -316,6 +338,8 @@ IO.on('connection', (client) => {
     
     // Remove card from client hand.
     game.players[playerIndex].hand = game.players[playerIndex].hand.filter((value) => value !== cardString);
+    game.log.push(`Player ${username} Played White Card: ${cardString}`);
+
 
     let playedCards = 0;
     for(const player of game.gameState.playedWhiteCards) {
@@ -332,14 +356,17 @@ IO.on('connection', (client) => {
   client.on('czarPicked', (username) => {
     const playerIndex = getPlayerIndex(username);
     
+    game.log.push(`Player ${username} won the round!`);
+    
     // Increase the score by one.
     game.players[playerIndex].score++;
     game.gameState.czarHasPicked = true;
 
     // Check for winner.
     for(const player of game.players) {
-      if(player.score === 10) {
-        IO.emit('winner', player.username, game.players);
+      if(player.score === 2) {
+        game.log.push(`Player ${player.username} won the game!`);
+        IO.emit('winner', player.username, game.players, game.log);
         console.log(`${player.username} won the game. Resetting.`);
         resetGame();
         return;
@@ -354,10 +381,12 @@ IO.on('connection', (client) => {
         for(let cardsLeft = cardsToAdd; cardsLeft > 0; cardsLeft--) {
           // Check if the white card deck is empty.
           if(game.gameState.whiteCards.length === 0) {
-            addDecks();
+            game.log.push('Refilling white cards.');
+            addDecks(false, true);
           }
 
           // Add card.
+          game.log.push(`Player ${player.username} Drew: ${game.gameState.whiteCards[0]}`);
           player.hand.push(game.gameState.whiteCards[0]);
           game.gameState.whiteCards.shift();
         }
@@ -373,10 +402,16 @@ IO.on('connection', (client) => {
       }else {
         game.gameState.czar++;
       }
+      game.log.push(`New Czar: ${game.players[game.gameState.czar].username}.`);
       game.gameState.czarReady = false;
       game.gameState.czarHasPicked = false;
       game.gameState.playedWhiteCards = [];
 
+      if(game.gameState.blackCards.length === 0) {
+        game.log.push('Refilling black cards.');
+        addDecks(true, false);
+      }
+      game.log.push(`Black Card in Play: ${game.gameState.blackCards[0].text}`);
       game.gameState.blackCard = game.gameState.blackCards[0];
       game.gameState.blackCards.shift();
 
@@ -390,6 +425,7 @@ IO.on('connection', (client) => {
     game.players.splice(game.players.findIndex((x) => x.username === username), 1);
     IO.emit('updatedGame', game);
     console.log(`Player ${username} disconnected.`);
+    game.log.push(`Player ${username} disconnected.`);
 
     // If there is not enough people to join.
     if(game.players.length < 4 && game.started) {
